@@ -1,4 +1,3 @@
-
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
@@ -11,7 +10,7 @@ const onlineUsers = new Map();
 const initSocket = (server) => {
   const io = new Server(server, {
     cors: {
-      origin: "http://localhost:5173",
+      origin: process.env.CLIENT_URL || "http://localhost:5173",
       methods: ["GET", "POST"],
     },
   });
@@ -54,13 +53,9 @@ const initSocket = (server) => {
       try {
         const { receiver, text, image } = data || {};
 
-        const cleanText =
-          typeof text === "string" ? text.trim() : "";
+        const cleanText = typeof text === "string" ? text.trim() : "";
 
-        if (
-          !receiver ||
-          !mongoose.Types.ObjectId.isValid(receiver)
-        ) {
+        if (!receiver || !mongoose.Types.ObjectId.isValid(receiver)) {
           return callback?.({
             success: false,
             message: "Valid receiver is required",
@@ -121,9 +116,7 @@ const initSocket = (server) => {
           image: image || "",
         });
 
-        const populatedMessage = await Message.findById(
-          savedMessage._id
-        )
+        const populatedMessage = await Message.findById(savedMessage._id)
           .populate("sender", "fullName email profilePic")
           .populate("receiver", "fullName email profilePic");
 
@@ -168,17 +161,14 @@ const initSocket = (server) => {
           },
           {
             returnDocument: "after",
-          }
+          },
         );
 
         if (updatedMessage) {
-          io.to(updatedMessage.sender.toString()).emit(
-            "messageStatusUpdated",
-            {
-              messageId: updatedMessage._id.toString(),
-              status: "delivered",
-            }
-          );
+          io.to(updatedMessage.sender.toString()).emit("messageStatusUpdated", {
+            messageId: updatedMessage._id.toString(),
+            status: "delivered",
+          });
         }
 
         callback?.({ success: true });
@@ -213,9 +203,7 @@ const initSocket = (server) => {
           status: { $ne: "read" },
         }).select("_id");
 
-        const messageIds = unreadMessages.map(
-          (message) => message._id
-        );
+        const messageIds = unreadMessages.map((message) => message._id);
 
         if (messageIds.length > 0) {
           await Message.updateMany(
@@ -224,7 +212,7 @@ const initSocket = (server) => {
             },
             {
               $set: { status: "read" },
-            }
+            },
           );
 
           io.to(senderId.toString()).emit("messagesRead", {
@@ -247,18 +235,13 @@ const initSocket = (server) => {
       }
     });
 
-
     // EDIT MESSAGE
     socket.on("editMessage", async (data, callback) => {
       try {
         const { messageId, text } = data || {};
-        const cleanText =
-          typeof text === "string" ? text.trim() : "";
+        const cleanText = typeof text === "string" ? text.trim() : "";
 
-        if (
-          !mongoose.Types.ObjectId.isValid(messageId) ||
-          !cleanText
-        ) {
+        if (!mongoose.Types.ObjectId.isValid(messageId) || !cleanText) {
           return callback?.({
             success: false,
             message: "Valid message ID and text are required",
@@ -279,7 +262,7 @@ const initSocket = (server) => {
           },
           {
             new: true,
-          }
+          },
         )
           .populate("sender", "fullName email profilePic")
           .populate("receiver", "fullName email profilePic");
@@ -367,7 +350,7 @@ const initSocket = (server) => {
           // Hide message only for current user
           await Message.updateOne(
             { _id: messageId },
-            { $addToSet: { deletedFor: userId } }
+            { $addToSet: { deletedFor: userId } },
           );
 
           io.to(userId).emit("messageDeleted", {
@@ -419,7 +402,7 @@ const initSocket = (server) => {
             $addToSet: {
               deletedFor: userId,
             },
-          }
+          },
         );
 
         // Notify only this user's connected devices
@@ -440,7 +423,6 @@ const initSocket = (server) => {
         });
       }
     });
-
 
     // USER IS TYPING
     socket.on("typing", (data = {}) => {
